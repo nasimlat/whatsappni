@@ -1,4 +1,5 @@
-from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler, Filters
+from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler
+from telegram.ext.filters import Filters
 from telegram import Update, ParseMode
 # from stats import log_usage
 
