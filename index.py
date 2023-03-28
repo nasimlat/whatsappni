@@ -6,6 +6,10 @@ from telegram import Update, ParseMode
 import os
 import re
 
+from dotenv import load_dotenv
+
+load_dotenv()  # loads the configs from .env
+
 updater = Updater(token=os.environ.get('BOT_TOKEN', None), use_context=True)
 
 
