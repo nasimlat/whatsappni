@@ -1,39 +1,54 @@
 from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler
 from telegram.ext.filters import Filters
 from telegram import Update, ParseMode
+from dotenv import load_dotenv
 # from stats import log_usage
 
 import os
 import re
 import logging
+import telegram
 
-from dotenv import load_dotenv
+load_dotenv()
 
-# Enable logging
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
-)
-logger = logging.getLogger(__name__)
 
-load_dotenv()  # loads the configs from .env
+BOT_TOKEN = os.getenv('BOT_TOKEN')
 
 updater = Updater(token=os.environ.get('BOT_TOKEN', None), use_context=True)
 
+logger = logging.getLogger(__name__)
+
+
+def send_message(update, context, message):
+    """Отправляет сообщение в Telegram чат. 
+    Принимает на вход три параметра: update, context и строку с текстом.
+    """
+    logger.info('Отправляю сообщение')
+    try:
+        context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=message,
+            parse_mode=ParseMode.HTML
+        )
+    except telegram.error.TelegramError as error:
+        logging.error(error)
+    else:
+        logging.debug(f'Бот отправил сообщение: "{message}"')
+
 
 def start(update, context):
-    context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text="Привет, я бот для отправки ссылки на переписку в WhatsApp. \
-            Напишите номер телефона и я пришлю ссылку на переписку в \
-            WhatsApp"
+    """Send a message when the command /start is issued."""
+    logger.info("/start")
+    update.message.reply_html(
+        f"Привет, я бот для готовки ссылки на переписку в WhatsApp. " 
+        "Напиши номер телефона и я пришлю ссылку на переписку в WhatsApp."
     )
 
-
 def help_command(update, context):
-    context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text="Просто отправьте мне номер телефона в любом формате, \
-            и я пришлю ссылку на переписку в WhatsApp."
+    logger.info("/help")
+    update.message.reply_html(
+        f"Просто отправьте мне номер телефона в любом формате, и я пришлю "
+        "WhatsApp-ссылку для диалога."
     )
 
 
@@ -51,9 +66,14 @@ def send_whatsapp_link(update: Update, context: CallbackContext) -> None:
             match = "7" + match
 
         whatsapp_number = f"https://wa.me/{match}"
-        context.bot.send_message(chat_id=update.effective_chat.id, text=whatsapp_number, parse_mode=ParseMode.HTML)
+
+        send_message(update, context, whatsapp_number)
+        # context.bot.send_message(chat_id=update.effective_chat.id, text=whatsapp_number, parse_mode=ParseMode.HTML)
     else:
-        context.bot.send_message(chat_id=update.effective_chat.id, text="В этом сообщении телефонных номеров я не обнаружил!")
+        message = "В этом сообщении телефонных номеров не обнаружил. "
+        "Попробуйте ещё раз."
+        send_message(update, context, message)
+        # context.bot.send_message(chat_id=update.effective_chat.id, text="В этом сообщении телефонных номеров я не обнаружил!")
 
 
 # Add the command and message handlers to the updater
@@ -67,4 +87,14 @@ def main() -> None:
     updater.idle()
 
 if __name__ == "__main__":
+    log_format = (
+        '%(asctime)s, %(levelname)s,'
+        ' %(message)s, %(funcName)s, %(lineno)d'
+    )
+
+    logging.basicConfig(
+        format=log_format,
+        level=logging.INFO
+    )
+
     main()
