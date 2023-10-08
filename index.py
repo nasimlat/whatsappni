@@ -87,7 +87,7 @@ async def send_whatsapp_link(update: Update, context) -> None:
 
 def main() -> None:
     """Основная логика работы бота."""
-    if not check_tokens():
+    if not await check_tokens():
         logger.critical(
             f'Не установлены переменные окружения: '
             f'{BOT_TOKEN}'
