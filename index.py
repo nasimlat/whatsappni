@@ -3,6 +3,7 @@ from telegram.ext.filters import Filters
 from telegram import Update, ParseMode
 from dotenv import load_dotenv
 
+
 import os
 import re
 import sys
@@ -28,13 +29,14 @@ def send_message(update, context, text):
     """
     logger.info('Отправляю сообщение')
     try:
+        chat_id = update.effective_chat.id
         context.bot.send_message(
-            chat_id=update.effective_chat.id,
+            chat_id=chat_id,
             text=text,
             parse_mode=ParseMode.HTML
         )
     except telegram.error.TelegramError as error:
-        logging.error(error)
+        logging.exception(error)
     else:
         logging.debug(f'Бот отправил сообщение: "{text}"')
 
@@ -42,6 +44,12 @@ def send_message(update, context, text):
 def start(update, context):
     """Send a message when the command /start is issued."""
     logger.info("/start")
+    # send_message(
+    #     context.bot,
+    #     update.message.chat_id,
+    #     "Привет, я бот для готовки ссылок для переписки в WhatsApp. "
+    #     "Чтобы получить ссылку просто пришли номер телефона."
+    # )
     update.message.reply_html(
         "Привет, я бот для готовки ссылок для переписки в WhatsApp. "
         "Чтобы получить ссылку просто пришли номер телефона."
