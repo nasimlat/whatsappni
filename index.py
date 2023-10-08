@@ -15,7 +15,7 @@ BOT_TOKEN = os.getenv('BOT_TOKEN')
 
 logger = logging.getLogger(__name__)
 
-async def check_tokens():
+def check_tokens():
     """Проверяет доступность переменных окружения."""
     return all([BOT_TOKEN])
 
@@ -74,20 +74,16 @@ async def send_whatsapp_link(update: Update, context) -> None:
             match = "7" + match
 
         whatsapp_number = f"https://wa.me/{match}"
-
         await send_message(update, context, whatsapp_number)
-        # context.bot.send_message(chat_id=update.effective_chat.id, text=whatsapp_number, parse_mode=ParseMode.HTML)
     else:
         msg = "В этом сообщении телефонных номеров не обнаружил. "
         "Попробуйте ещё раз."
         await send_message(update, context, msg)
-        # context.bot.send_message(chat_id=update.effective_chat.id, text="В этом сообщении телефонных номеров я не обнаружил!")
-#     # database = UserDatabase()
-#     # database.write_to_db(msg)
+
 
 def main() -> None:
     """Основная логика работы бота."""
-    if not await check_tokens():
+    if not check_tokens():
         logger.critical(
             f'Не установлены переменные окружения: '
             f'{BOT_TOKEN}'
@@ -99,7 +95,10 @@ def main() -> None:
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
 
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, send_whatsapp_link))
+    application.add_handler(MessageHandler(
+        filters.TEXT & ~filters.COMMAND,
+        send_whatsapp_link
+    ))
 
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
