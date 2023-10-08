@@ -1,6 +1,6 @@
 #coding=utf-8
 from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler
-from telegram.ext.filters import Filters
+from telegram.ext import filters
 from telegram import Update, ParseMode
 from dotenv import load_dotenv
 
@@ -96,7 +96,7 @@ def send_whatsapp_link(update: Update, context: CallbackContext) -> None:
 # Add the command and message handlers to the updater
 updater.dispatcher.add_handler(CommandHandler('start', start))
 updater.dispatcher.add_handler(CommandHandler('help', help_command))
-updater.dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, send_whatsapp_link))
+updater.dispatcher.add_handler(MessageHandler(filters.text_messages & ~filters.command_messages, send_whatsapp_link))
 
 def main() -> None:
     """Основная логика работы бота."""
