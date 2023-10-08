@@ -1,7 +1,9 @@
 #coding=utf-8
-from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler
-from telegram.ext import filters
-from telegram import Update, ParseMode
+from telegram import Bot
+from telegram.ext import Application, CommandHandler, MessageHandler, filters
+# from telegram.ext import filters
+from telegram import Update
+from telegram.constants import ParseMode
 from dotenv import load_dotenv
 
 import os
@@ -11,10 +13,10 @@ import logging
 import telegram
 
 load_dotenv()
-
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 
-updater = Updater(token=BOT_TOKEN, use_context=True)
+# bot = Bot(token=BOT_TOKEN)
+# updater = Updater(bot=bot)
 
 logger = logging.getLogger(__name__)
 
@@ -23,14 +25,14 @@ def check_tokens():
     return all([BOT_TOKEN])
 
 
-def send_message(update, context, text):
+async def send_message(update, context, text):
     """Отправляет сообщение в Telegram чат. 
     Принимает на вход три параметра: update, context и строку с текстом.
     """
     logger.info('Отправляю сообщение')
     try:
         chat_id = update.effective_chat.id
-        context.bot.send_message(
+        await context.bot.send_message(
             chat_id=chat_id,
             text=text,
             parse_mode=ParseMode.HTML
@@ -41,7 +43,7 @@ def send_message(update, context, text):
         logging.debug(f'Бот отправил сообщение: "{text}"')
 
 
-def start(update, context):
+async def start(update, context):
     """Send a message when the command /start is issued."""
     logger.info("/start")
     # send_message(
@@ -50,14 +52,14 @@ def start(update, context):
     #     "Привет, я бот для готовки ссылок для переписки в WhatsApp. "
     #     "Чтобы получить ссылку просто пришли номер телефона."
     # )
-    update.message.reply_html(
+    await update.message.reply_html(
         "Привет, я бот для готовки ссылок для переписки в WhatsApp. "
         "Чтобы получить ссылку просто пришли номер телефона."
     )
 
-def help_command(update, context):
+async def help_command(update, context):
     logger.info("/help")
-    update.message.reply_text(
+    await update.message.reply_text(
         "Просто отправь мне номер телефона в любом  "
         "виде, и я пришлю WhatsApp-ссылку для диалога.\n\n"
         "Всё дело в том, чтобы начать переписку с "
@@ -68,7 +70,7 @@ def help_command(update, context):
     )
 
 
-def send_whatsapp_link(update: Update, context: CallbackContext) -> None:
+async def send_whatsapp_link(update: Update, context) -> None:
     """Send a WhatsApp link for a given phone number."""
     PHONE_REGEX = r'^(\s*)?(\+)?([- _():=+]?\d[- _():=+]?){10,14}(\s*)?$'
 
@@ -83,20 +85,20 @@ def send_whatsapp_link(update: Update, context: CallbackContext) -> None:
 
         whatsapp_number = f"https://wa.me/{match}"
 
-        send_message(update, context, whatsapp_number)
+        await send_message(update, context, whatsapp_number)
         # context.bot.send_message(chat_id=update.effective_chat.id, text=whatsapp_number, parse_mode=ParseMode.HTML)
     else:
         msg = "В этом сообщении телефонных номеров не обнаружил. "
         "Попробуйте ещё раз."
-        send_message(update, context, msg)
+        await send_message(update, context, msg)
         # context.bot.send_message(chat_id=update.effective_chat.id, text="В этом сообщении телефонных номеров я не обнаружил!")
-    # database = UserDatabase()
-    # database.write_to_db(msg)
+#     # database = UserDatabase()
+#     # database.write_to_db(msg)
 
 # Add the command and message handlers to the updater
-updater.dispatcher.add_handler(CommandHandler('start', start))
-updater.dispatcher.add_handler(CommandHandler('help', help_command))
-updater.dispatcher.add_handler(MessageHandler(filters.text_messages & ~filters.command_messages, send_whatsapp_link))
+# updater.dispatcher.add_handler(CommandHandler('start', start))
+# updater.dispatcher.add_handler(CommandHandler('help', help_command))
+# updater.dispatcher.add_handler(MessageHandler(filters.text_messages & ~filters.command_messages, send_whatsapp_link))
 
 def main() -> None:
     """Основная логика работы бота."""
@@ -107,8 +109,15 @@ def main() -> None:
         )
         sys.exit('Непорядок с переменными окружения')
 
-    updater.start_polling()
-    updater.idle()
+    application = Application.builder().token(BOT_TOKEN).build()
+
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("help", help_command))
+
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, send_whatsapp_link))
+
+    application.run_polling(allowed_updates=Update.ALL_TYPES)
+
 
 if __name__ == "__main__":
     log_format = (
