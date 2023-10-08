@@ -15,9 +15,9 @@ BOT_TOKEN = os.getenv('BOT_TOKEN')
 
 logger = logging.getLogger(__name__)
 
-def check_tokens():
-    """Проверяет доступность переменных окружения."""
-    return all([BOT_TOKEN])
+# def check_tokens():
+#     """Проверяет доступность переменных окружения."""
+#     return all([BOT_TOKEN])
 
 
 async def send_message(update, context, text):
@@ -83,12 +83,12 @@ async def send_whatsapp_link(update: Update, context) -> None:
 
 def main() -> None:
     """Основная логика работы бота."""
-    if not check_tokens():
-        logger.critical(
-            f'Не установлены переменные окружения: '
-            f'{BOT_TOKEN}'
-        )
-        sys.exit('Непорядок с переменными окружения')
+    # if not check_tokens():
+    #     logger.critical(
+    #         f'Не установлены переменные окружения: '
+    #         f'{BOT_TOKEN}'
+    #     )
+    #     sys.exit('Непорядок с переменными окружения')
 
     application = Application.builder().token(BOT_TOKEN).build()
 
