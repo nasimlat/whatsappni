@@ -1,4 +1,4 @@
-﻿from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler
+from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler
 from telegram.ext.filters import Filters
 from telegram import Update, ParseMode
 from dotenv import load_dotenv
