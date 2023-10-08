@@ -1,3 +1,4 @@
+#coding=utf-8
 from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler
 from telegram.ext.filters import Filters
 from telegram import Update, ParseMode
