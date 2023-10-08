@@ -1,7 +1,5 @@
 #coding=utf-8
-from telegram import Bot
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
-# from telegram.ext import filters
 from telegram import Update
 from telegram.constants import ParseMode
 from dotenv import load_dotenv
@@ -15,12 +13,9 @@ import telegram
 load_dotenv()
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 
-# bot = Bot(token=BOT_TOKEN)
-# updater = Updater(bot=bot)
-
 logger = logging.getLogger(__name__)
 
-def check_tokens():
+async def check_tokens():
     """Проверяет доступность переменных окружения."""
     return all([BOT_TOKEN])
 
@@ -46,12 +41,7 @@ async def send_message(update, context, text):
 async def start(update, context):
     """Send a message when the command /start is issued."""
     logger.info("/start")
-    # send_message(
-    #     context.bot,
-    #     update.message.chat_id,
-    #     "Привет, я бот для готовки ссылок для переписки в WhatsApp. "
-    #     "Чтобы получить ссылку просто пришли номер телефона."
-    # )
+
     await update.message.reply_html(
         "Привет, я бот для готовки ссылок для переписки в WhatsApp. "
         "Чтобы получить ссылку просто пришли номер телефона."
@@ -94,11 +84,6 @@ async def send_whatsapp_link(update: Update, context) -> None:
         # context.bot.send_message(chat_id=update.effective_chat.id, text="В этом сообщении телефонных номеров я не обнаружил!")
 #     # database = UserDatabase()
 #     # database.write_to_db(msg)
-
-# Add the command and message handlers to the updater
-# updater.dispatcher.add_handler(CommandHandler('start', start))
-# updater.dispatcher.add_handler(CommandHandler('help', help_command))
-# updater.dispatcher.add_handler(MessageHandler(filters.text_messages & ~filters.command_messages, send_whatsapp_link))
 
 def main() -> None:
     """Основная логика работы бота."""
