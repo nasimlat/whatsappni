@@ -76,8 +76,7 @@ async def send_whatsapp_link(update: Update, context) -> None:
         whatsapp_number = f"https://wa.me/{match}"
         await send_message(update, context, whatsapp_number)
     else:
-        msg = "В этом сообщении телефонных номеров не обнаружил. "
-        "Попробуйте ещё раз."
+        msg = "В этом сообщении телефонных номеров не обнаружил. Попробуйте ещё раз."
         await send_message(update, context, msg)
 
 
