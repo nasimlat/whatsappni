@@ -1,7 +1,8 @@
 # whatsappni
 
-  ![Python Version](https://img.shields.io/pypi/pyversions/python-telegram-bot)
-  ![python-telegram-bot Version](https://img.shields.io/pypi/v/python-telegram-bot)
+ [![Python Version](https://img.shields.io/pypi/pyversions/python-telegram-bot.svg?style=flat-square)](https://pypi.python.org/pypi/python-telegram-bot)
+ [![python-telegram-bot Version](https://img.shields.io/pypi/v/python-telegram-bot.svg?style=flat-square)](https://pypi.python.org/pypi/python-telegram-bot)
+
 
 
 
