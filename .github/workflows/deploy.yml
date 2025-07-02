@@ -23,7 +23,7 @@ jobs:
           pip install -r requirements.txt  # Установка зависимостей
 
       - name: Deploy via SSH
-        uses: appleboy/ssh-action@master  # Действие для SSH-подключения
+        uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SERVER_USER }} # Имя пользователя на сервере
