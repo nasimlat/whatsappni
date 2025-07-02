@@ -1,0 +1,44 @@
+name: Deploy Telegram Bot
+
+on:
+  push:
+    branches: [main]  # Триггер на обновление ветки main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest  # ОС для выполнения задач
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3  # Клонируем репозиторий
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'  # Установка Python
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt  # Установка зависимостей
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@master  # Действие для SSH-подключения
+        with:
+          host: ${{ secrets.SERVER_IP }}       # IP-адрес сервера
+          username: ${{ secrets.SERVER_USER }} # Имя пользователя на сервере
+          password: ${{ secrets.SERVER_PASSWORD }} # Пароль (лучше использовать SSH-ключи)
+          script: |
+            # Остановите текущую службу бота
+            systemctl stop telegram-bot || true
+
+            # Обновите код на сервере
+            cd /path/to/bot  # Путь к папке с ботом на сервере
+            git fetch origin
+            git reset --hard origin/main
+
+            # Установите зависимости
+            pip3 install -r requirements.txt --no-cache-dir
+
+            # Перезапустите службу
+            systemctl start telegram-bot
