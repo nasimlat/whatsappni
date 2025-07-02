@@ -4,9 +4,6 @@ on:
   push:
     branches: [main]
 
-env:
-  ARTIFACT_NAME: telegram-bot-tar
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -26,9 +23,9 @@ jobs:
           docker save telegram-bot > telegram-bot.tar
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.ARTIFACT_NAME }}
+          name: telegram-bot-tar
           path: telegram-bot.tar
 
       - name: Deploy via SSH
@@ -43,8 +40,10 @@ jobs:
             docker rm telegram-bot || true
             rm -f telegram-bot.tar || true
 
-            # Скачайте артефакт
-            curl -u $GITHUB_ACTOR:$GITHUB_TOKEN -L https://github.com/ ${{ github.repository }}/suites/${{ github.run_id }}/artifacts/${{ env.ARTIFACT_NAME }} -o telegram-bot.tar
+            # Скачайте артефакт через download-artifact
+            curl -u $GITHUB_ACTOR:$GITHUB_TOKEN -L \
+              "https://github.com/ ${{ github.repository }}/suites/${{ github.run_id }}/artifacts/${{ env.ARTIFACT_NAME }}" \
+              -o telegram-bot.tar
 
             # Обновите код
             cd /home/ubuntu/telegram-bot
