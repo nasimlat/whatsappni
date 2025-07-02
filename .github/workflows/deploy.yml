@@ -33,7 +33,7 @@ jobs:
             systemctl stop telegram-bot || true
 
             # Обновите код на сервере
-            cd /path/to/bot  # Путь к папке с ботом на сервере
+            cd /app  # Путь к папке с ботом на сервере
             git fetch origin
             git reset --hard origin/main
 
