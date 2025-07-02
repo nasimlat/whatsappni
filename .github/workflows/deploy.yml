@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
 
+env:
+  ARTIFACT_NAME: telegram-bot-tar
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -17,15 +20,16 @@ jobs:
         with:
           python-version: '3.x'
 
-      - name: Install dependencies
-        run: |
-          pip install --upgrade pip
-          pip install -r requirements.txt  # Для локальной проверки (необязательно)
-
-      - name: Build and push Docker image
+      - name: Build and save Docker image
         run: |
           docker build -t telegram-bot .
           docker save telegram-bot > telegram-bot.tar
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: telegram-bot.tar
 
       - name: Deploy via SSH
         uses: appleboy/ssh-action@master
@@ -34,19 +38,23 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-
+            # Очистка старых данных
             docker stop telegram-bot || true
             docker rm telegram-bot || true
+            rm -f telegram-bot.tar || true
 
-            # Перейдите в директорию проекта
-            cd /root/bots/whatsappni # Путь к вашему проекту на сервере
+            # Скачайте артефакт
+            curl -u $GITHUB_ACTOR:$GITHUB_TOKEN -L https://github.com/ ${{ github.repository }}/suites/${{ github.run_id }}/artifacts/${{ env.ARTIFACT_NAME }} -o telegram-bot.tar
 
-            # Обновите код из репозитория
+            # Обновите код
+            cd /home/ubuntu/telegram-bot
             git fetch origin
             git reset --hard origin/main
 
-            # Загрузите и запустите новый контейнер
+            # Загрузите образ
             docker load < telegram-bot.tar
+
+            # Запустите контейнер
             docker run -d \
               --name telegram-bot \
               -e BOT_TOKEN=${{ secrets.BOT_TOKEN }} \
