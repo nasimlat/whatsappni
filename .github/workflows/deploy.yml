@@ -27,7 +27,7 @@ jobs:
         with:
           host: ${{ secrets.SERVER_IP }}       # IP-адрес сервера
           username: ${{ secrets.SERVER_USER }} # Имя пользователя на сервере
-          password: ${{ secrets.SERVER_PASSWORD }} # Пароль (лучше использовать SSH-ключи)
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             # Остановите текущую службу бота
             systemctl stop telegram-bot || true
