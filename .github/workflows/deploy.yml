@@ -2,7 +2,7 @@ name: Deploy Telegram Bot
 
 on:
   push:
-    branches: [main]  # Триггер на обновление ветки main
+    branches: [main]
 
 jobs:
   deploy:
