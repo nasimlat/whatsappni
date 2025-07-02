@@ -6,39 +6,48 @@ on:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest  # ОС для выполнения задач
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3  # Клонируем репозиторий
+        uses: actions/checkout@v3
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.x'  # Установка Python
+          python-version: '3.x'
 
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install -r requirements.txt  # Установка зависимостей
+          pip install -r requirements.txt  # Для локальной проверки (необязательно)
+
+      - name: Build and push Docker image
+        run: |
+          docker build -t telegram-bot .
+          docker save telegram-bot > telegram-bot.tar
 
       - name: Deploy via SSH
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SERVER_IP }}
-          username: ${{ secrets.SERVER_USER }} # Имя пользователя на сервере
+          username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # Остановите текущую службу бота
-            systemctl stop telegram-bot || true
+            # Остановите и удалите старый контейнер
+            docker stop telegram-bot || true
+            docker rm telegram-bot || true
 
-            # Обновите код на сервере
-            cd /app  # Путь к папке с ботом на сервере
+            # Перейдите в директорию проекта
+            cd /home/ubuntu/telegram-bot  # Путь к вашему проекту на сервере
+
+            # Обновите код из репозитория
             git fetch origin
             git reset --hard origin/main
 
-            # Установите зависимости
-            pip3 install -r requirements.txt --no-cache-dir
-
-            # Перезапустите службу
-            systemctl start telegram-bot
+            # Загрузите и запустите новый контейнер
+            docker load < telegram-bot.tar
+            docker run -d \
+              --name telegram-bot \
+              -e BOT_TOKEN=${{ secrets.BOT_TOKEN }} \
+              telegram-bot
