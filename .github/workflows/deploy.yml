@@ -39,7 +39,7 @@ jobs:
             docker rm telegram-bot || true
 
             # Перейдите в директорию проекта
-            cd /home/ubuntu/telegram-bot  # Путь к вашему проекту на сервере
+            cd /root/bots/whatsappni # Путь к вашему проекту на сервере
 
             # Обновите код из репозитория
             git fetch origin
