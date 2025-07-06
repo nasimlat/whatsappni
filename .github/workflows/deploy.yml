@@ -35,7 +35,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # Очистка старых данных
+
             docker stop telegram-bot || true
             docker rm telegram-bot || true
             rm -f telegram-bot.tar || true
