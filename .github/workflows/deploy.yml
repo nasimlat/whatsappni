@@ -7,6 +7,7 @@ on:
 env:
   DOCKER_IMAGE_NAME: whatsappnibot
   PROJECT_DIR: /home/whatsappni
+  REPO_URL: https://github.com/nasimlat/whatsappni.git
 
 jobs:
   deploy:
@@ -14,46 +15,93 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Deploy via SSH
-        uses: appleboy/ssh-action@v0.1.8
+        uses: appleboy/ssh-action@v1.0.7
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script_timeout: 600
+          envs: DOCKER_IMAGE_NAME,PROJECT_DIR,REPO_URL,BOT_TOKEN,TELEGRAM_BOT_TOKEN
           script: |
-            set -e  # Включаем строгий режим
+            #!/bin/bash
+            set -euo pipefail  # Строгий режим с проверкой неопределённых переменных
             
-            echo "Очищаем старые контейнеры..."
-            docker stop $DOCKER_IMAGE_NAME || true
-            docker rm $DOCKER_IMAGE_NAME || true
+            echo "=== Начало развертывания ==="
             
-            # Создаем рабочую директорию
-            echo "Создаем рабочую директорию..."
-            mkdir -p $PROJECT_DIR
-            cd $PROJECT_DIR
+            # Проверка обязательных переменных
+            required_vars=(DOCKER_IMAGE_NAME PROJECT_DIR REPO_URL BOT_TOKEN TELEGRAM_BOT_TOKEN)
+            for var in "${required_vars[@]}"; do
+              if [ -z "${!var:-}" ]; then
+                echo "❌ ОШИБКА: Переменная $var не установлена!"
+                exit 1
+              fi
+            done
             
-            # Клонируем репозиторий
-            echo "Клонируем репозиторий..."
-            if [ ! -d ".git" ]; then
-              git init
-              git remote add origin https://github.com/nasimlat/whatsappni.git 
-              git fetch --depth=1 origin ${{ github.ref }}
-              git checkout -b ${{ github.ref_name }} origin/${{ github.ref_name }}
-            else
-              git fetch origin
-              git reset --hard origin/${{ github.ref_name }}
-            fi
+            # Функция безопасной очистки контейнеров
+            cleanup_containers() {
+              echo "🔎 Поиск контейнеров с именем: $DOCKER_IMAGE_NAME"
+              if docker ps -aq --filter "name=$DOCKER_IMAGE_NAME" | grep -q .; then
+                echo "🧹 Останавливаем и удаляем контейнер..."
+                docker stop "$DOCKER_IMAGE_NAME" >/dev/null 2>&1 || true
+                docker rm -f "$DOCKER_IMAGE_NAME" >/dev/null 2>&1 || true
+                echo "✅ Контейнер удалён"
+              else
+                echo "ℹ️ Контейнеры для очистки не найдены"
+              fi
+            }
             
-            # Собираем Docker-образ
-            echo "Собираем Docker-образ..."
-            docker build -t $DOCKER_IMAGE_NAME .
+            # Функция подготовки директории
+            prepare_directory() {
+              echo "📂 Рабочая директория: $PROJECT_DIR"
+              sudo mkdir -p "$PROJECT_DIR"
+              sudo chown -R $USER "$PROJECT_DIR"
+              cd "$PROJECT_DIR" || { echo "❌ Ошибка перехода в $PROJECT_DIR"; exit 1; }
+            }
             
-            # Запускаем контейнер
-            echo "Запускаем контейнер..."
-            docker run -d \
-              --name $DOCKER_IMAGE_NAME \
-              -e BOT_TOKEN=${{ secrets.BOT_TOKEN }} \
-              -e TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }} \
-              $DOCKER_IMAGE_NAME
+            # Функция обновления репозитория
+            update_repository() {
+              echo "🌐 Работа с репозиторием: $REPO_URL"
+              
+              if [ ! -d ".git" ]; then
+                echo "Инициализация нового репозитория..."
+                git init -q
+                git remote add origin "$REPO_URL" || true
+              fi
+              
+              echo "Получение изменений из origin/$GITHUB_REF_NAME..."
+              git fetch --depth=1 origin "$GITHUB_REF_NAME"
+              git checkout -B "$GITHUB_REF_NAME" FETCH_HEAD --force
+              git reset --hard origin/"$GITHUB_REF_NAME"
+              echo "✅ Код обновлён"
+            }
+            
+            # Функция сборки и запуска Docker
+            deploy_docker() {
+              echo "🐳 Сборка Docker-образа ($DOCKER_IMAGE_NAME)..."
+              docker build -t "$DOCKER_IMAGE_NAME" .
+              
+              echo "🚀 Запуск контейнера..."
+              docker run -d \
+                --name "$DOCKER_IMAGE_NAME" \
+                --restart unless-stopped \
+                -e BOT_TOKEN="$BOT_TOKEN" \
+                -e TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" \
+                "$DOCKER_IMAGE_NAME"
+                
+              echo "✅ Контейнер запущен"
+            }
+            
+            # Основной процесс
+            cleanup_containers
+            prepare_directory
+            update_repository
+            deploy_docker
+            
+            echo "🎉 Развертывание успешно завершено!"
+            docker ps --filter "name=$DOCKER_IMAGE_NAME"
