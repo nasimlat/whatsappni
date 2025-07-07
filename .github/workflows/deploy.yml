@@ -1,8 +1,12 @@
-name: Deploy Telegram Bot
+name: Deploy WhatsAppni Bot
 
 on:
   push:
     branches: [main]
+
+env:
+  DOCKER_IMAGE_NAME: whatsappnibot
+  PROJECT_DIR: /home/whatsappni
 
 jobs:
   deploy:
@@ -12,49 +16,45 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.x'
-
-      - name: Build and save Docker image
-        run: |
-          docker build -t telegram-bot .
-          docker save telegram-bot > telegram-bot.tar
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: telegram-bot-tar
-          path: telegram-bot.tar
-
       - name: Deploy via SSH
-        uses: appleboy/ssh-action@master
+        uses: appleboy/ssh-action@v0.1.8
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-
-            docker stop telegram-bot || true
-            docker rm telegram-bot || true
-            rm -f telegram-bot.tar || true
-
-            # Скачайте артефакт через download-artifact
-            curl -u $GITHUB_ACTOR:$GITHUB_TOKEN -L \
-              "https://github.com/ ${{ github.repository }}/suites/${{ github.run_id }}/artifacts/${{ env.ARTIFACT_NAME }}" \
-              -o telegram-bot.tar
-
-            # Обновите код
-            cd /home/ubuntu/telegram-bot
-            git fetch origin
-            git reset --hard origin/main
-
-            # Загрузите образ
-            docker load < telegram-bot.tar
-
-            # Запустите контейнер
+            set -e  # Включаем строгий режим
+            
+            # Очищаем старые контейнеры
+            echo "Очищаем старые контейнеры..."
+            docker stop $DOCKER_IMAGE_NAME || true
+            docker rm $DOCKER_IMAGE_NAME || true
+            
+            # Создаем рабочую директорию
+            echo "Создаем рабочую директорию..."
+            mkdir -p $PROJECT_DIR
+            cd $PROJECT_DIR
+            
+            # Клонируем репозиторий
+            echo "Клонируем репозиторий..."
+            if [ ! -d ".git" ]; then
+              git init
+              git remote add origin https://github.com/nasimlat/whatsappni.git 
+              git fetch --depth=1 origin ${{ github.ref }}
+              git checkout -b ${{ github.ref_name }} origin/${{ github.ref_name }}
+            else
+              git fetch origin
+              git reset --hard origin/${{ github.ref_name }}
+            fi
+            
+            # Собираем Docker-образ
+            echo "Собираем Docker-образ..."
+            docker build -t $DOCKER_IMAGE_NAME .
+            
+            # Запускаем контейнер
+            echo "Запускаем контейнер..."
             docker run -d \
-              --name telegram-bot \
+              --name $DOCKER_IMAGE_NAME \
               -e BOT_TOKEN=${{ secrets.BOT_TOKEN }} \
-              telegram-bot
+              -e TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }} \
+              $DOCKER_IMAGE_NAME
