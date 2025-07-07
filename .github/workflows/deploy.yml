@@ -26,7 +26,8 @@ jobs:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script_timeout: 600
+          timeout: 12         # Общий таймаут действия в минутах
+          command_timeout: 600 # Таймаут отдельной команды в секундах
           envs: DOCKER_IMAGE_NAME,PROJECT_DIR,REPO_URL,BOT_TOKEN,TELEGRAM_BOT_TOKEN
           script: |
             #!/bin/bash
@@ -75,9 +76,9 @@ jobs:
               fi
               
               echo "Получение изменений из origin/$GITHUB_REF_NAME..."
-              git fetch --depth=1 origin "$GITHUB_REF_NAME"
-              git checkout -B "$GITHUB_REF_NAME" FETCH_HEAD --force
-              git reset --hard origin/"$GITHUB_REF_NAME"
+              git fetch origin
+              git checkout -B "$GITHUB_REF_NAME" --track "origin/$GITHUB_REF_NAME" --force
+              git reset --hard "origin/$GITHUB_REF_NAME"
               echo "✅ Код обновлён"
             }
             
