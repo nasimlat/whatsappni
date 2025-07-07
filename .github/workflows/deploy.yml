@@ -25,7 +25,6 @@ jobs:
           script: |
             set -e  # Включаем строгий режим
             
-            # Очищаем старые контейнеры
             echo "Очищаем старые контейнеры..."
             docker stop $DOCKER_IMAGE_NAME || true
             docker rm $DOCKER_IMAGE_NAME || true
