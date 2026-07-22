@@ -1,6 +1,7 @@
 #coding=utf-8
-from telegram.ext import Application, CommandHandler, MessageHandler, filters
+from telegram.ext import Application, CommandHandler, MessageHandler, InlineQueryHandler, filters
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineQueryResultArticle, InputTextMessageContent
 from telegram import Update
 from telegram.constants import ParseMode
 from dotenv import load_dotenv
@@ -48,18 +49,21 @@ def check_tokens():
     return all([BOT_TOKEN])
 
 
+def _buttons_to_markup(buttons):
+    """Convert a {label: url} dict into a single-row InlineKeyboardMarkup."""
+    keyboard = [InlineKeyboardButton(text, url=url) for text, url in buttons.items()]
+    return InlineKeyboardMarkup([keyboard])
+
+
 async def send_message(update, context, text, buttons=None):
-    """Отправляет сообщение в Telegram чат. 
+    """Отправляет сообщение в Telegram чат.
     Принимает на вход три параметра: update, context, текстом и кнопки.
     """
     logger.info('Отправляю сообщение')
     try:
         chat_id = update.effective_chat.id
 
-        reply_markup = None
-        if buttons:
-            keyboard = [InlineKeyboardButton(text, url=url) for text, url in buttons.items()]
-            reply_markup = InlineKeyboardMarkup([keyboard])
+        reply_markup = _buttons_to_markup(buttons) if buttons else None
 
         await context.bot.send_message(
             chat_id=chat_id,
@@ -94,29 +98,79 @@ async def help_command(update, context):
     )
 
 
+PHONE_REGEX = r'^(\s*)?(\+)?([- _():=+]?\d[- _():=+]?){10,14}(\s*)?$'
+
+
+def normalize_phone(text: str):
+    """Take a raw string, strip non-digits, normalize a leading '8' to '7'
+    (or prepend '7' if neither '7' nor '8' is present), and return the
+    digits-only phone number, or None if the input is not a valid phone
+    number.
+    """
+    digits = re.sub(r'\D', '', text)
+
+    if not re.match(PHONE_REGEX, digits):
+        return None
+
+    if digits.startswith("8"):
+        digits = "7" + digits[1:]
+    elif "7" not in digits and "8" not in digits:
+        digits = "7" + digits
+
+    return digits
+
+
+def _build_link_buttons(match):
+    return {
+        "Telegram 🥏": f"https://t.me/+{match}",
+        "WhatsApp 🪀": f"https://wa.me/{match}"
+    }
+
+
+def _build_copyable_links_text(buttons):
+    """Render a {label: url} dict as tap-to-copy <code>...</code> lines."""
+    return "\n".join(f"<code>{url}</code>" for url in buttons.values())
+
+
 async def send_links(update: Update, context) -> None:
     """Send a WhatsApp link for a given phone number."""
-    PHONE_REGEX = r'^(\s*)?(\+)?([- _():=+]?\d[- _():=+]?){10,14}(\s*)?$'
-
     _record_activity(update)
 
-    msg = update.message.text.strip()
-    match = re.sub(r'\D', '', msg)
+    match = normalize_phone(update.message.text)
 
-    if re.match(PHONE_REGEX, match):
-        if match.startswith("8"):
-            match = "7" + match[1:]
-        elif "7" not in match and "8" not in match:
-            match = "7" + match
-
-        buttons = {
-            "Telegram 🥏": f"https://t.me/+{match}",
-            "WhatsApp 🪀": f"https://wa.me/{match}"
-        }
-        await send_message(update, context, "Готово! Где открыть чат?", buttons=buttons)
+    if match is not None:
+        buttons = _build_link_buttons(match)
+        text = "Готово! Где открыть чат?\n\n" + _build_copyable_links_text(buttons)
+        await send_message(update, context, text, buttons=buttons)
     else:
         msg = "Не нашёл здесь номера. Пришли его ещё раз — можно в любом формате."
         await send_message(update, context, msg)
+
+
+async def inline_query(update, context) -> None:
+    """Inline mode: given a raw query, answer with links to Telegram/WhatsApp
+    chats for the phone number found in it, or empty results if none."""
+    query = update.inline_query.query
+    normalized = normalize_phone(query)
+
+    if normalized is None:
+        await update.inline_query.answer([])
+        return
+
+    buttons = _build_link_buttons(normalized)
+    reply_markup = _buttons_to_markup(buttons)
+    message_text = _build_copyable_links_text(buttons)
+
+    result = InlineQueryResultArticle(
+        id="links",
+        title="Ссылки для этого номера",
+        input_message_content=InputTextMessageContent(
+            message_text, parse_mode=ParseMode.HTML
+        ),
+        reply_markup=reply_markup,
+    )
+
+    await update.inline_query.answer([result])
 
 
 def _format_timestamp(iso_str):
@@ -180,6 +234,7 @@ def main() -> None:
         filters.TEXT & ~filters.COMMAND,
         send_links
     ))
+    application.add_handler(InlineQueryHandler(inline_query))
 
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 

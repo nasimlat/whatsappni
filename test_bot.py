@@ -319,3 +319,130 @@ async def test_send_telegram_link_valid_number_normalizes_8_prefix():
     buttons = kwargs['reply_markup'].inline_keyboard[0]
     telegram_button = next(b for b in buttons if 't.me' in b.url)
     assert telegram_button.url == "https://t.me/+79345678901"
+
+
+# --- Feature: Inline-режим + копируемая ссылка ---
+#
+# normalize_phone(text) is a new, module-level pure function in bot.py. A minimal
+# RED-phase stub (`return None` unconditionally) was added to bot.py so these tests
+# fail on assertions rather than on ImportError.
+#
+# inline_query(update, context) is a brand-new async handler that does not exist in
+# bot.py yet (deliberately not stubbed per the RED-phase brief). Each test that needs
+# it does a local `from bot import inline_query` inside the test body so only those
+# tests fail on ImportError, while the rest of this file continues to collect and run.
+#
+# send_links is extended (not replaced): it must keep emitting the existing Telegram/
+# WhatsApp inline buttons (AC-6, regression guard) while additionally embedding the
+# bare URLs as tap-to-copy <code>...</code> text (AC-5).
+
+
+@pytest.mark.parametrize(
+    "raw_text, expected",
+    [
+        pytest.param("+79345678901", "79345678901", id="AC-1"),
+        pytest.param("89345678901", "79345678901", id="AC-2"),
+        pytest.param("8(934)567-89-01", "79345678901", id="AC-3"),
+        pytest.param("Вот его номер: 89345678901", "79345678901", id="EC-1"),
+        pytest.param("invalid number", None, id="ERR-1-word"),
+        pytest.param("", None, id="ERR-1-empty"),
+    ],
+)
+def test_normalize_phone(raw_text, expected):
+    """AC-1/AC-2/AC-3/EC-1/ERR-1: normalize_phone нормализует номер к digits-only
+    виду "7XXXXXXXXXX" (срезая нецифровые символы и приводя ведущую 8 к 7), либо
+    возвращает None для невалидного/пустого ввода."""
+    from bot import normalize_phone
+
+    assert normalize_phone(raw_text) == expected
+
+
+def _extract_urls_from_inline_result(result):
+    """Собирает URL-строки из текста результата и/или кнопок для проверки на подстроку."""
+    message_text = getattr(result.input_message_content, "message_text", "") or ""
+    button_urls = []
+    reply_markup = getattr(result, "reply_markup", None)
+    if reply_markup:
+        for row in reply_markup.inline_keyboard:
+            for button in row:
+                if getattr(button, "url", None):
+                    button_urls.append(button.url)
+    return message_text, button_urls
+
+
+@pytest.mark.asyncio
+async def test_ac4_inline_query_valid_number_returns_result_with_links():
+    """AC-4: inline_query с валидным номером вызывает answer() с непустым списком
+    результатов, чьё содержимое/кнопки включают "https://t.me/+79345678901" и
+    "https://wa.me/79345678901"."""
+    from bot import inline_query
+
+    update = MagicMock()
+    context = MagicMock()
+    update.inline_query.query = "89345678901"
+    update.inline_query.id = "q1"
+    update.inline_query.answer = AsyncMock()
+
+    await inline_query(update, context)
+
+    update.inline_query.answer.assert_awaited_once()
+    results = update.inline_query.answer.call_args.args[0]
+    assert len(results) == 1
+
+    message_text, button_urls = _extract_urls_from_inline_result(results[0])
+    combined = message_text + " ".join(button_urls)
+    assert "https://t.me/+79345678901" in combined
+    assert "https://wa.me/79345678901" in combined
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "query_text",
+    [
+        pytest.param("", id="EC-2-empty"),
+        pytest.param("invalid number", id="EC-2-invalid"),
+    ],
+)
+async def test_ec2_inline_query_empty_or_invalid_returns_empty_results(query_text):
+    """EC-2: inline_query с пустым или невалидным (не телефон) text вызывает
+    answer() с пустым списком результатов."""
+    from bot import inline_query
+
+    update = MagicMock()
+    context = MagicMock()
+    update.inline_query.query = query_text
+    update.inline_query.id = "q2"
+    update.inline_query.answer = AsyncMock()
+
+    await inline_query(update, context)
+
+    update.inline_query.answer.assert_awaited_once()
+    results = update.inline_query.answer.call_args.args[0]
+    assert results == []
+
+
+@pytest.mark.asyncio
+async def test_ac5_ac6_send_links_copyable_code_links_and_buttons_regression():
+    """AC-5: send_links включает голые URL "https://t.me/+79345678901" и
+    "https://wa.me/79345678901" копируемым моноширинным текстом (в <code>...</code>).
+    AC-6: инлайн-кнопки Telegram и WhatsApp по-прежнему присутствуют — регресс
+    кнопок недопустим."""
+    update = MagicMock()
+    context = MagicMock()
+    context.bot.send_message = AsyncMock()
+
+    update.message.text = "+79345678901"
+
+    await send_links(update, context)
+
+    context.bot.send_message.assert_called_once()
+    args, kwargs = context.bot.send_message.call_args
+
+    # AC-5
+    assert "<code>https://t.me/+79345678901</code>" in kwargs['text']
+    assert "<code>https://wa.me/79345678901</code>" in kwargs['text']
+
+    # AC-6 (regression guard)
+    buttons = kwargs['reply_markup'].inline_keyboard[0]
+    button_urls = {b.url for b in buttons}
+    assert button_urls == {"https://t.me/+79345678901", "https://wa.me/79345678901"}
