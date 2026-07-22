@@ -18,6 +18,7 @@ from storage import (
     get_db_path,
     get_stats,
     get_user,
+    get_user_list,
     init_db,
     is_admin,
     record_activity,
@@ -43,6 +44,7 @@ def test_ac1_first_seen_creates_row_with_count_one(conn):
         "first_seen": now.isoformat(),
         "last_seen": now.isoformat(),
         "messages_count": 1,
+        "username": None,
     }
 
 
@@ -59,6 +61,7 @@ def test_ac2_repeat_visit_updates_last_seen_and_increments_count_without_changin
         "first_seen": first_seen.isoformat(),
         "last_seen": second_seen.isoformat(),
         "messages_count": 2,
+        "username": None,
     }
 
 
@@ -73,6 +76,52 @@ def test_ac4_get_stats_returns_total_and_active_counts(conn):
     record_activity(conn, 3, recent)
 
     assert get_stats(conn, now, days=7) == {"total": 3, "active": 2}
+
+
+def test_record_activity_stores_username_and_keeps_it_on_later_calls_without_one(conn):
+    """username передаётся при первом обращении и не затирается None-ом при последующих без username."""
+    first_seen = datetime(2026, 7, 20, 9, 0, 0, tzinfo=timezone.utc)
+    second_seen = datetime(2026, 7, 22, 15, 30, 0, tzinfo=timezone.utc)
+
+    record_activity(conn, 333, first_seen, username="nasim")
+    record_activity(conn, 333, second_seen)
+
+    assert get_user(conn, 333)["username"] == "nasim"
+
+
+def test_get_stats_excludes_given_user_id(conn):
+    """get_stats(..., exclude_user_id=X) не учитывает X ни в total, ни в active."""
+    now = datetime(2026, 7, 22, 12, 0, 0, tzinfo=timezone.utc)
+
+    record_activity(conn, 1, now)
+    record_activity(conn, 2, now)
+
+    assert get_stats(conn, now, days=7, exclude_user_id=1) == {"total": 1, "active": 1}
+
+
+def test_get_stats_exclude_user_id_none_excludes_nobody(conn):
+    """exclude_user_id=None (дефолт) не исключает никого — регрессия на баг с SQL NULL-сравнением."""
+    now = datetime(2026, 7, 22, 12, 0, 0, tzinfo=timezone.utc)
+
+    record_activity(conn, 1, now)
+    record_activity(conn, 2, now)
+
+    assert get_stats(conn, now, days=7) == {"total": 2, "active": 2}
+
+
+def test_get_user_list_excludes_admin_and_orders_by_last_seen_desc(conn):
+    """get_user_list возвращает всех кроме exclude_user_id, отсортированных по last_seen убыв."""
+    older = datetime(2026, 7, 20, 9, 0, 0, tzinfo=timezone.utc)
+    newer = datetime(2026, 7, 22, 15, 30, 0, tzinfo=timezone.utc)
+
+    record_activity(conn, 10, older, username="first")
+    record_activity(conn, 20, newer, username="second")
+    record_activity(conn, 99, newer, username="admin")
+
+    result = get_user_list(conn, exclude_user_id=99)
+
+    assert [u["user_id"] for u in result] == [20, 10]
+    assert result[0]["username"] == "second"
 
 
 def test_ac4_is_admin_true_when_user_id_matches_admin_id_env():

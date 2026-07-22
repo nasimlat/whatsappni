@@ -175,9 +175,10 @@ async def test_ac3_handlers_record_user_activity(monkeypatch, handler_name, mess
 
 @pytest.mark.asyncio
 async def test_ac4_stats_command_admin_receives_formatted_counts(monkeypatch):
-    """AC-4: /stats от ADMIN_ID отвечает "Уникальных пользователей: {total}\\nАктивных за 7 дней: {active}"."""
+    """AC-4: /stats от ADMIN_ID отвечает "Уникальных пользователей: {total}\\nАктивных за 7 дней: {active}", без детального списка если пользователей нет."""
     monkeypatch.setattr(storage, "is_admin", MagicMock(return_value=True))
     monkeypatch.setattr(storage, "get_stats", MagicMock(return_value={"total": 5, "active": 2}))
+    monkeypatch.setattr(storage, "get_user_list", MagicMock(return_value=[]))
 
     from bot import stats_command
 
@@ -189,6 +190,76 @@ async def test_ac4_stats_command_admin_receives_formatted_counts(monkeypatch):
     update.message.reply_text.assert_called_once_with(
         "Уникальных пользователей: 5\nАктивных за 7 дней: 2"
     )
+    assert storage.get_stats.call_args.kwargs["exclude_user_id"] == 777
+    assert storage.get_user_list.call_args.kwargs["exclude_user_id"] == 777
+
+
+@pytest.mark.asyncio
+async def test_stats_command_admin_sees_detailed_per_user_list(monkeypatch):
+    """/stats: при наличии пользователей после счётчиков идёт список 'кто/когда/сколько'."""
+    monkeypatch.setattr(storage, "is_admin", MagicMock(return_value=True))
+    monkeypatch.setattr(storage, "get_stats", MagicMock(return_value={"total": 1, "active": 1}))
+    monkeypatch.setattr(
+        storage,
+        "get_user_list",
+        MagicMock(
+            return_value=[
+                {
+                    "user_id": 42,
+                    "username": "someone",
+                    "first_seen": "2026-07-20T09:00:00+00:00",
+                    "last_seen": "2026-07-22T15:30:00+00:00",
+                    "messages_count": 3,
+                }
+            ]
+        ),
+    )
+
+    from bot import stats_command
+
+    update = make_update(user_id=777)
+    context = make_context()
+
+    await stats_command(update, context)
+
+    sent_text = update.message.reply_text.call_args.args[0]
+    assert "Уникальных пользователей: 1" in sent_text
+    assert "@someone" in sent_text
+    assert "2026-07-20 09:00" in sent_text
+    assert "2026-07-22 15:30" in sent_text
+    assert "сообщений: 3" in sent_text
+
+
+@pytest.mark.asyncio
+async def test_stats_command_lists_user_without_username_by_id(monkeypatch):
+    """Если у пользователя нет username, в списке он подписан как id<N>."""
+    monkeypatch.setattr(storage, "is_admin", MagicMock(return_value=True))
+    monkeypatch.setattr(storage, "get_stats", MagicMock(return_value={"total": 1, "active": 0}))
+    monkeypatch.setattr(
+        storage,
+        "get_user_list",
+        MagicMock(
+            return_value=[
+                {
+                    "user_id": 42,
+                    "username": None,
+                    "first_seen": "2026-07-20T09:00:00+00:00",
+                    "last_seen": "2026-07-20T09:00:00+00:00",
+                    "messages_count": 1,
+                }
+            ]
+        ),
+    )
+
+    from bot import stats_command
+
+    update = make_update(user_id=777)
+    context = make_context()
+
+    await stats_command(update, context)
+
+    sent_text = update.message.reply_text.call_args.args[0]
+    assert "id42" in sent_text
 
 
 @pytest.mark.asyncio

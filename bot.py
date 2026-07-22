@@ -37,8 +37,9 @@ def _record_activity(update):
     try:
         conn = _get_db_connection()
         user_id = update.effective_user.id
+        username = update.effective_user.username or update.effective_user.first_name
         now = datetime.now(timezone.utc)
-        storage.record_activity(conn, user_id, now)
+        storage.record_activity(conn, user_id, now, username=username)
     except sqlite3.Error:
         logger.exception('Не удалось записать активность пользователя')
 
@@ -119,8 +120,13 @@ async def send_links(update: Update, context) -> None:
         await send_message(update, context, msg)
 
 
+def _format_timestamp(iso_str):
+    """Приводит ISO-строку из БД к читаемому 'YYYY-MM-DD HH:MM'."""
+    return datetime.fromisoformat(iso_str).strftime("%Y-%m-%d %H:%M")
+
+
 async def stats_command(update, context) -> None:
-    """AC-4/AC-5: reply with usage stats to the admin only; silent for everyone else."""
+    """AC-4/AC-5: reply with usage stats to the admin only; silent for everyone else. Сам админ в статистику не входит."""
     logger.info("/stats")
     user_id = update.effective_user.id
 
@@ -129,12 +135,25 @@ async def stats_command(update, context) -> None:
 
     conn = _get_db_connection()
     now = datetime.now(timezone.utc)
-    stats = storage.get_stats(conn, now)
+    stats = storage.get_stats(conn, now, exclude_user_id=user_id)
+    users = storage.get_user_list(conn, exclude_user_id=user_id)
 
-    await update.message.reply_text(
-        f"Уникальных пользователей: {stats['total']}\n"
-        f"Активных за 7 дней: {stats['active']}"
-    )
+    lines = [
+        f"Уникальных пользователей: {stats['total']}",
+        f"Активных за 7 дней: {stats['active']}",
+    ]
+
+    if users:
+        lines.append("")
+        for u in users:
+            label = f"@{u['username']}" if u["username"] else f"id{u['user_id']}"
+            lines.append(
+                f"{label} — впервые: {_format_timestamp(u['first_seen'])}, "
+                f"последний раз: {_format_timestamp(u['last_seen'])}, "
+                f"сообщений: {u['messages_count']}"
+            )
+
+    await update.message.reply_text("\n".join(lines))
 
 
 def main() -> None:
