@@ -8,6 +8,8 @@ env:
   DOCKER_IMAGE_NAME: whatsappnibot
   PROJECT_DIR: /root/bots/whatsappni
   REPO_URL: https://github.com/nasimlat/whatsappni.git
+  # Не секрет: локальный адрес SOCKS5-туннеля до Telegram (telegram-tunnel.service на самом сервере)
+  TELEGRAM_PROXY_URL: socks5://127.0.0.1:1080
 
 jobs:
   deploy:
@@ -23,7 +25,6 @@ jobs:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           ADMIN_ID: ${{ secrets.ADMIN_ID }}
-          TELEGRAM_PROXY_URL: ${{ secrets.TELEGRAM_PROXY_URL }}
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SERVER_USER }}
