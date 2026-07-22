@@ -146,7 +146,13 @@ def main() -> None:
         )
         sys.exit('Непорядок с переменными окружения')
 
-    application = Application.builder().token(BOT_TOKEN).build()
+    builder = Application.builder().token(BOT_TOKEN)
+
+    proxy_url = os.getenv('TELEGRAM_PROXY_URL')
+    if proxy_url:
+        builder = builder.proxy_url(proxy_url).get_updates_proxy_url(proxy_url)
+
+    application = builder.build()
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
