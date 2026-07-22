@@ -22,13 +22,14 @@ jobs:
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          ADMIN_ID: ${{ secrets.ADMIN_ID }}
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           timeout: 12         # Общий таймаут действия в минутах
           command_timeout: 600 # Таймаут отдельной команды в секундах
-          envs: DOCKER_IMAGE_NAME,PROJECT_DIR,REPO_URL,BOT_TOKEN,TELEGRAM_BOT_TOKEN
+          envs: DOCKER_IMAGE_NAME,PROJECT_DIR,REPO_URL,BOT_TOKEN,TELEGRAM_BOT_TOKEN,ADMIN_ID
           script: |
             #!/bin/bash
             set -euo pipefail  # Строгий режим с проверкой неопределённых переменных
@@ -63,6 +64,8 @@ jobs:
               sudo mkdir -p "$PROJECT_DIR"
               sudo chown -R $USER "$PROJECT_DIR"
               cd "$PROJECT_DIR" || { echo "❌ Ошибка перехода в $PROJECT_DIR"; exit 1; }
+              # Отдельная директория для файлов, переживающих пересоздание контейнера (sqlite-база аналитики)
+              mkdir -p "$PROJECT_DIR/data"
             }
             
             # Функция обновления репозитория
@@ -93,6 +96,9 @@ jobs:
                 --restart unless-stopped \
                 -e BOT_TOKEN="$BOT_TOKEN" \
                 -e TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" \
+                -e ADMIN_ID="${ADMIN_ID:-}" \
+                -e DB_PATH=/app/data/users.db \
+                -v "$PROJECT_DIR/data:/app/data" \
                 "$DOCKER_IMAGE_NAME"
                 
               echo "✅ Контейнер запущен"
