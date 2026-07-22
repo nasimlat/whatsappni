@@ -38,8 +38,8 @@ jobs:
             
             echo "=== Начало развертывания ==="
             
-            # Проверка обязательных переменных
-            required_vars=(DOCKER_IMAGE_NAME PROJECT_DIR REPO_URL BOT_TOKEN TELEGRAM_BOT_TOKEN)
+            # Проверка обязательных переменных (TELEGRAM_BOT_TOKEN не входит - bot.py её не читает, только BOT_TOKEN)
+            required_vars=(DOCKER_IMAGE_NAME PROJECT_DIR REPO_URL BOT_TOKEN)
             for var in "${required_vars[@]}"; do
               if [ -z "${!var:-}" ]; then
                 echo "❌ ОШИБКА: Переменная $var не установлена!"
@@ -102,7 +102,7 @@ jobs:
                 --restart unless-stopped \
                 --network host \
                 -e BOT_TOKEN="$BOT_TOKEN" \
-                -e TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" \
+                -e TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}" \
                 -e ADMIN_ID="${ADMIN_ID:-}" \
                 -e TELEGRAM_PROXY_URL="${TELEGRAM_PROXY_URL:-}" \
                 -e DB_PATH=/app/data/users.db \
