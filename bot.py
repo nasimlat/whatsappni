@@ -111,7 +111,7 @@ async def send_links(update: Update, context) -> None:
             match = "7" + match
 
         buttons = {
-            "Телеграм 🥏": f"t.me/{match}",
+            "Телеграм 🥏": f"https://t.me/+{match}",
             "Ватсап 🪀": f"https://wa.me/{match}"
         }
         await send_message(update, context, "Выбери синюю кнопку или зелёную::", buttons=buttons)

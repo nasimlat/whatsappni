@@ -277,3 +277,45 @@ async def test_ac5_stats_command_non_admin_gets_no_response(monkeypatch):
 
     update.message.reply_text.assert_not_called()
     context.bot.send_message.assert_not_called()
+
+
+# --- Bug fix: Telegram deep-link button is missing "https://" scheme and the "+"
+# phone-number marker required by core.telegram.org/api/links. Without the "+",
+# "t.me/<digits>" is parsed as a (all-digit, therefore invalid) username and the
+# link goes nowhere. Correct format: "https://t.me/+<digits>".
+
+
+@pytest.mark.asyncio
+async def test_send_telegram_link_valid_number():
+    # Создаем мок-объекты для update и context
+    update = MagicMock()
+    context = MagicMock()
+    context.bot.send_message = AsyncMock()
+
+    update.message.text = "+79345678901"
+
+    await send_links(update, context)
+
+    context.bot.send_message.assert_called_once()
+    args, kwargs = context.bot.send_message.call_args
+    buttons = kwargs['reply_markup'].inline_keyboard[0]
+    telegram_button = next(b for b in buttons if 't.me' in b.url)
+    assert telegram_button.url == "https://t.me/+79345678901"
+
+
+@pytest.mark.asyncio
+async def test_send_telegram_link_valid_number_normalizes_8_prefix():
+    # Создаем мок-объекты для update и context
+    update = MagicMock()
+    context = MagicMock()
+    context.bot.send_message = AsyncMock()
+
+    update.message.text = "89345678901"
+
+    await send_links(update, context)
+
+    context.bot.send_message.assert_called_once()
+    args, kwargs = context.bot.send_message.call_args
+    buttons = kwargs['reply_markup'].inline_keyboard[0]
+    telegram_button = next(b for b in buttons if 't.me' in b.url)
+    assert telegram_button.url == "https://t.me/+79345678901"
