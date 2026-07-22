@@ -10,11 +10,37 @@ import re
 import sys
 import logging
 import telegram
+import sqlite3
+from datetime import datetime, timezone
+
+import storage
 
 load_dotenv()
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 
 logger = logging.getLogger(__name__)
+
+_db_conn = None
+
+
+def _get_db_connection():
+    """Lazily open (and initialize) the sqlite3 connection used for analytics."""
+    global _db_conn
+    if _db_conn is None:
+        _db_conn = storage.get_connection()
+        storage.init_db(_db_conn)
+    return _db_conn
+
+
+def _record_activity(update):
+    """AC-3: record activity for the current user, independent of the handler."""
+    try:
+        conn = _get_db_connection()
+        user_id = update.effective_user.id
+        now = datetime.now(timezone.utc)
+        storage.record_activity(conn, user_id, now)
+    except sqlite3.Error:
+        logger.exception('Не удалось записать активность пользователя')
 
 def check_tokens():
     """Проверяет доступность переменных окружения."""
@@ -49,6 +75,7 @@ async def send_message(update, context, text, buttons=None):
 async def start(update, context):
     """Send a message when the command /start is issued."""
     logger.info("/start")
+    _record_activity(update)
 
     await update.message.reply_html(
         "Привет, я бот для готовки ссылок для переписки в Ватсап и Телеграм. "
@@ -57,6 +84,7 @@ async def start(update, context):
 
 async def help_command(update, context):
     logger.info("/help")
+    _record_activity(update)
     await update.message.reply_text(
         "Просто отправь мне номер телефона в любом  "
         "виде, и я пришлю две кнопки.\n\n"
@@ -69,6 +97,8 @@ async def help_command(update, context):
 async def send_links(update: Update, context) -> None:
     """Send a WhatsApp link for a given phone number."""
     PHONE_REGEX = r'^(\s*)?(\+)?([- _():=+]?\d[- _():=+]?){10,14}(\s*)?$'
+
+    _record_activity(update)
 
     msg = update.message.text.strip()
     match = re.sub(r'\D', '', msg)
@@ -89,6 +119,24 @@ async def send_links(update: Update, context) -> None:
         await send_message(update, context, msg)
 
 
+async def stats_command(update, context) -> None:
+    """AC-4/AC-5: reply with usage stats to the admin only; silent for everyone else."""
+    logger.info("/stats")
+    user_id = update.effective_user.id
+
+    if not storage.is_admin(user_id, os.getenv("ADMIN_ID")):
+        return
+
+    conn = _get_db_connection()
+    now = datetime.now(timezone.utc)
+    stats = storage.get_stats(conn, now)
+
+    await update.message.reply_text(
+        f"Уникальных пользователей: {stats['total']}\n"
+        f"Активных за 7 дней: {stats['active']}"
+    )
+
+
 def main() -> None:
     """Основная логика работы бота."""
     if not check_tokens():
@@ -102,6 +150,7 @@ def main() -> None:
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CommandHandler("stats", stats_command))
 
     application.add_handler(MessageHandler(
         filters.TEXT & ~filters.COMMAND,
