@@ -80,10 +80,12 @@ jobs:
                 git remote add origin "$REPO_URL" || true
               fi
               
-              echo "Получение изменений из origin/$GITHUB_REF_NAME..."
+              # Захардкожено: workflow и так триггерится только на push в main (см. `on:` выше),
+              # а $GITHUB_REF_NAME не входит в envs: и на удалённом скрипте не задан (падает под set -u)
+              echo "Получение изменений из origin/main..."
               git fetch origin
-              git checkout -B "$GITHUB_REF_NAME" --track "origin/$GITHUB_REF_NAME" --force
-              git reset --hard "origin/$GITHUB_REF_NAME"
+              git checkout -B main --track origin/main --force
+              git reset --hard origin/main
               echo "✅ Код обновлён"
             }
             
