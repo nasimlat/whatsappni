@@ -106,7 +106,7 @@ async def test_send_whatsapp_link_invalid_number():
 
     context.bot.send_message.assert_called_once()
     args, kwargs = context.bot.send_message.call_args
-    assert kwargs['text'] == "В этом сообщении телефонных номеров не обнаружил. Попробуйте ещё раз."
+    assert kwargs['text'] == "Не нашёл здесь номера. Пришли его ещё раз — можно в любом формате."
 
 
 # --- Analytics: user activity tracking (AC-3) and /stats admin command (AC-4, AC-5) ---

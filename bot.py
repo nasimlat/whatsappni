@@ -79,19 +79,18 @@ async def start(update, context):
     _record_activity(update)
 
     await update.message.reply_html(
-        "Привет, я бот для готовки ссылок для переписки в Ватсап и Телеграм. "
-        "Чтобы получить ссылку просто пришли номер телефона."
+        "Привет! Пришли номер телефона — и я дам ссылки, чтобы сразу написать "
+        "человеку в Telegram или WhatsApp — даже не сохраняя контакт."
     )
 
 async def help_command(update, context):
     logger.info("/help")
     _record_activity(update)
     await update.message.reply_text(
-        "Просто отправь мне номер телефона в любом  "
-        "виде, и я пришлю две кнопки.\n\n"
-        "Всё дело в том, чтобы начать переписку с "
-        "новым контактом, его надо сохранить в "
-        "телефонную книгу. Зачем всё это! Начни общение сразу."
+        "Пришли мне номер телефона в любом формате — и я дам две кнопки, "
+        "чтобы открыть чат в Telegram или WhatsApp.\n\n"
+        "Обычно, чтобы написать новому человеку, его номер сначала надо "
+        "сохранить в контакты. Со мной это не нужно — жми на кнопку и сразу пиши."
     )
 
 
@@ -111,12 +110,12 @@ async def send_links(update: Update, context) -> None:
             match = "7" + match
 
         buttons = {
-            "Телеграм 🥏": f"https://t.me/+{match}",
-            "Ватсап 🪀": f"https://wa.me/{match}"
+            "Telegram 🥏": f"https://t.me/+{match}",
+            "WhatsApp 🪀": f"https://wa.me/{match}"
         }
-        await send_message(update, context, "Выбери синюю кнопку или зелёную::", buttons=buttons)
+        await send_message(update, context, "Готово! Где открыть чат?", buttons=buttons)
     else:
-        msg = "В этом сообщении телефонных номеров не обнаружил. Попробуйте ещё раз."
+        msg = "Не нашёл здесь номера. Пришли его ещё раз — можно в любом формате."
         await send_message(update, context, msg)
 
 
