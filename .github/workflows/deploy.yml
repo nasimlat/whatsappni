@@ -6,7 +6,7 @@ on:
 
 env:
   DOCKER_IMAGE_NAME: whatsappnibot
-  PROJECT_DIR: /home/whatsappni
+  PROJECT_DIR: /root/bots/whatsappni
   REPO_URL: https://github.com/nasimlat/whatsappni.git
 
 jobs:
@@ -23,13 +23,14 @@ jobs:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           ADMIN_ID: ${{ secrets.ADMIN_ID }}
+          TELEGRAM_PROXY_URL: ${{ secrets.TELEGRAM_PROXY_URL }}
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           timeout: 12         # Общий таймаут действия в минутах
           command_timeout: 600 # Таймаут отдельной команды в секундах
-          envs: DOCKER_IMAGE_NAME,PROJECT_DIR,REPO_URL,BOT_TOKEN,TELEGRAM_BOT_TOKEN,ADMIN_ID
+          envs: DOCKER_IMAGE_NAME,PROJECT_DIR,REPO_URL,BOT_TOKEN,TELEGRAM_BOT_TOKEN,ADMIN_ID,TELEGRAM_PROXY_URL
           script: |
             #!/bin/bash
             set -euo pipefail  # Строгий режим с проверкой неопределённых переменных
@@ -89,14 +90,20 @@ jobs:
             deploy_docker() {
               echo "🐳 Сборка Docker-образа ($DOCKER_IMAGE_NAME)..."
               docker build -t "$DOCKER_IMAGE_NAME" .
-              
+
+              if [ -n "${TELEGRAM_PROXY_URL:-}" ] && ! systemctl is-active --quiet telegram-tunnel.service 2>/dev/null; then
+                echo "⚠️  TELEGRAM_PROXY_URL задан, но telegram-tunnel.service не активен на этом сервере — бот не сможет достучаться до Telegram, пока туннель не поднимется"
+              fi
+
               echo "🚀 Запуск контейнера..."
               docker run -d \
                 --name "$DOCKER_IMAGE_NAME" \
                 --restart unless-stopped \
+                --network host \
                 -e BOT_TOKEN="$BOT_TOKEN" \
                 -e TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" \
                 -e ADMIN_ID="${ADMIN_ID:-}" \
+                -e TELEGRAM_PROXY_URL="${TELEGRAM_PROXY_URL:-}" \
                 -e DB_PATH=/app/data/users.db \
                 -v "$PROJECT_DIR/data:/app/data" \
                 "$DOCKER_IMAGE_NAME"
