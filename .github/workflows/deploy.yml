@@ -29,8 +29,8 @@ jobs:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          timeout: 12         # Общий таймаут действия в минутах
-          command_timeout: 600 # Таймаут отдельной команды в секундах
+          timeout: 12m         # Общий таймаут действия
+          command_timeout: 600s # Таймаут отдельной команды
           envs: DOCKER_IMAGE_NAME,PROJECT_DIR,REPO_URL,BOT_TOKEN,TELEGRAM_BOT_TOKEN,ADMIN_ID,TELEGRAM_PROXY_URL
           script: |
             #!/bin/bash
