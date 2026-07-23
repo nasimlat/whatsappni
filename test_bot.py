@@ -414,6 +414,24 @@ async def test_ac4_inline_query_valid_number_returns_result_with_links():
 
 
 @pytest.mark.asyncio
+async def test_inline_result_carries_thumbnail_icon():
+    """Inline-результат несёт иконку (thumb_url) — не пустой кружок с буквой."""
+    from bot import inline_query
+
+    update = MagicMock()
+    context = MagicMock()
+    update.inline_query.query = "89345678901"
+    update.inline_query.id = "q-thumb"
+    update.inline_query.answer = AsyncMock()
+
+    await inline_query(update, context)
+
+    result = update.inline_query.answer.call_args.args[0][0]
+    assert result.thumb_url
+    assert result.thumb_url.endswith(".jpg")
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "query_text",
     [

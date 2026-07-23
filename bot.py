@@ -163,6 +163,10 @@ _INLINE_TITLES = (
     "Ссылки для переписки — отправить",
 )
 
+# Иконка inline-результата — аватар бота, лежащий в самом репозитории
+# (публичный raw-URL: без внешнего хостинга и без токена в ссылке).
+_INLINE_THUMB_URL = "https://raw.githubusercontent.com/nasimlat/whatsappni/main/icon.jpg"
+
 
 def _build_reply_body(buttons):
     """Общий текст ответа: случайный заголовок, подсказка про копирование и
@@ -207,6 +211,9 @@ async def inline_query(update, context) -> None:
         id="links",
         title=random.choice(_INLINE_TITLES),
         description="Telegram и WhatsApp · тапни, чтобы отправить",
+        thumb_url=_INLINE_THUMB_URL,
+        thumb_width=640,
+        thumb_height=640,
         input_message_content=InputTextMessageContent(
             message_text, parse_mode=ParseMode.HTML
         ),
