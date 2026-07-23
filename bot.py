@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 import os
 import re
 import sys
+import random
 import logging
 import telegram
 import sqlite3
@@ -90,12 +91,14 @@ async def start(update, context):
 async def help_command(update, context):
     logger.info("/help")
     _record_activity(update)
-    await update.message.reply_text(
+    username = context.bot.username
+    await update.message.reply_html(
         "Пришли мне номер телефона в любом формате — и я дам кнопки, чтобы "
         "открыть чат в Telegram или WhatsApp, плюс сами ссылки: тапни по "
         "ссылке, чтобы её скопировать.\n\n"
-        "Ещё меня можно звать прямо в любом чате: начни писать моё имя (@…) "
-        "и номер — и отправь ссылки собеседнику, не заходя сюда.\n\n"
+        "Ещё меня можно звать прямо в любом чате — напиши моё имя и номер, "
+        "и отправь ссылки собеседнику, не заходя сюда. Имя можно скопировать "
+        f"вот здесь (тапни): <code>@{username}</code>\n\n"
         "Обычно, чтобы написать новому человеку, его номер сначала надо "
         "сохранить в контакты. Со мной это не нужно — жми и пиши."
     )
@@ -125,8 +128,8 @@ def normalize_phone(text: str):
 
 def _build_link_buttons(match):
     return {
-        "Telegram 🥏": f"https://t.me/+{match}",
-        "WhatsApp 🪀": f"https://wa.me/{match}"
+        "Telegram ✈️": f"https://t.me/+{match}",
+        "WhatsApp 💬": f"https://wa.me/{match}"
     }
 
 
@@ -145,6 +148,33 @@ def _build_copyable_links_text(buttons):
     return "\n\n".join(blocks)
 
 
+# Небольшие пулы формулировок — бот берёт случайную, чтобы ответы не были
+# каждый раз одинаковыми. Ссылки и подсказки при этом всегда на месте.
+_REPLY_HEADERS = (
+    "Готово! Жми кнопку — откроется чат 👇",
+    "Лови 👇 Жми кнопку — и ты сразу в чате",
+    "Держи! Тапни кнопку, чтобы открыть чат 👇",
+    "Есть номер! Переписка в один тап — жми кнопку 👇",
+)
+
+_INLINE_TITLES = (
+    "Отправить ссылки на чат",
+    "Написать по номеру",
+    "Ссылки для переписки — отправить",
+)
+
+
+def _build_reply_body(buttons):
+    """Общий текст ответа: случайный заголовок, подсказка про копирование и
+    сами копируемые ссылки. Используется и в личке, и в inline-режиме, чтобы
+    поведение было одинаковым."""
+    return (
+        random.choice(_REPLY_HEADERS) + "\n\n"
+        "Или тапни ссылку, чтобы скопировать:\n\n"
+        + _build_copyable_links_text(buttons)
+    )
+
+
 async def send_links(update: Update, context) -> None:
     """Send a WhatsApp link for a given phone number."""
     _record_activity(update)
@@ -153,12 +183,7 @@ async def send_links(update: Update, context) -> None:
 
     if match is not None:
         buttons = _build_link_buttons(match)
-        text = (
-            "Готово! Жми кнопку — откроется чат 👇\n\n"
-            "Или тапни ссылку, чтобы скопировать:\n\n"
-            + _build_copyable_links_text(buttons)
-        )
-        await send_message(update, context, text, buttons=buttons)
+        await send_message(update, context, _build_reply_body(buttons), buttons=buttons)
     else:
         msg = "Не нашёл здесь номера. Пришли его ещё раз — можно в любом формате."
         await send_message(update, context, msg)
@@ -176,11 +201,12 @@ async def inline_query(update, context) -> None:
 
     buttons = _build_link_buttons(normalized)
     reply_markup = _buttons_to_markup(buttons)
-    message_text = _build_copyable_links_text(buttons)
+    message_text = _build_reply_body(buttons)
 
     result = InlineQueryResultArticle(
         id="links",
-        title="Ссылки для этого номера",
+        title=random.choice(_INLINE_TITLES),
+        description="Telegram и WhatsApp · тапни, чтобы отправить",
         input_message_content=InputTextMessageContent(
             message_text, parse_mode=ParseMode.HTML
         ),

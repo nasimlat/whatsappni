@@ -174,6 +174,24 @@ async def test_ac3_handlers_record_user_activity(monkeypatch, handler_name, mess
 
 
 @pytest.mark.asyncio
+async def test_help_shows_copyable_bot_username_for_inline(monkeypatch):
+    """/help показывает @username бота копируемым (<code>) текстом, чтобы его
+    можно было тапнуть и вставить для inline-режима."""
+    monkeypatch.setattr(storage, "record_activity", MagicMock())
+    from bot import help_command
+
+    update = make_update()
+    update.message.reply_html = AsyncMock()
+    context = make_context()
+    context.bot.username = "whatsappnibot"
+
+    await help_command(update, context)
+
+    sent_text = update.message.reply_html.call_args.args[0]
+    assert "<code>@whatsappnibot</code>" in sent_text
+
+
+@pytest.mark.asyncio
 async def test_ac4_stats_command_admin_receives_formatted_counts(monkeypatch):
     """AC-4: /stats от ADMIN_ID отвечает "Уникальных пользователей: {total}\\nАктивных за 7 дней: {active}", без детального списка если пользователей нет."""
     monkeypatch.setattr(storage, "is_admin", MagicMock(return_value=True))
