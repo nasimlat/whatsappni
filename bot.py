@@ -91,10 +91,13 @@ async def help_command(update, context):
     logger.info("/help")
     _record_activity(update)
     await update.message.reply_text(
-        "Пришли мне номер телефона в любом формате — и я дам две кнопки, "
-        "чтобы открыть чат в Telegram или WhatsApp.\n\n"
+        "Пришли мне номер телефона в любом формате — и я дам кнопки, чтобы "
+        "открыть чат в Telegram или WhatsApp, плюс сами ссылки: тапни по "
+        "ссылке, чтобы её скопировать.\n\n"
+        "Ещё меня можно звать прямо в любом чате: начни писать моё имя (@…) "
+        "и номер — и отправь ссылки собеседнику, не заходя сюда.\n\n"
         "Обычно, чтобы написать новому человеку, его номер сначала надо "
-        "сохранить в контакты. Со мной это не нужно — жми на кнопку и сразу пиши."
+        "сохранить в контакты. Со мной это не нужно — жми и пиши."
     )
 
 
@@ -128,8 +131,18 @@ def _build_link_buttons(match):
 
 
 def _build_copyable_links_text(buttons):
-    """Render a {label: url} dict as tap-to-copy <code>...</code> lines."""
-    return "\n".join(f"<code>{url}</code>" for url in buttons.values())
+    """Render a {label: url} dict as labeled, tap-to-copy <code> blocks.
+
+    Each link is its own block separated by a blank line so they're easy to
+    tap individually without hitting the wrong one, and the "https://" prefix
+    is dropped to keep the copyable text short — Telegram auto-links
+    t.me/wa.me addresses anyway.
+    """
+    blocks = []
+    for label, url in buttons.items():
+        short = url.removeprefix("https://")
+        blocks.append(f"{label} — <code>{short}</code>")
+    return "\n\n".join(blocks)
 
 
 async def send_links(update: Update, context) -> None:
@@ -140,7 +153,11 @@ async def send_links(update: Update, context) -> None:
 
     if match is not None:
         buttons = _build_link_buttons(match)
-        text = "Готово! Где открыть чат?\n\n" + _build_copyable_links_text(buttons)
+        text = (
+            "Готово! Жми кнопку — откроется чат 👇\n\n"
+            "Или тапни ссылку, чтобы скопировать:\n\n"
+            + _build_copyable_links_text(buttons)
+        )
         await send_message(update, context, text, buttons=buttons)
     else:
         msg = "Не нашёл здесь номера. Пришли его ещё раз — можно в любом формате."

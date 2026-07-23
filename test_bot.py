@@ -438,9 +438,15 @@ async def test_ac5_ac6_send_links_copyable_code_links_and_buttons_regression():
     context.bot.send_message.assert_called_once()
     args, kwargs = context.bot.send_message.call_args
 
-    # AC-5
-    assert "<code>https://t.me/+79345678901</code>" in kwargs['text']
-    assert "<code>https://wa.me/79345678901</code>" in kwargs['text']
+    # AC-5: short, labeled, tap-to-copy links (https:// dropped for brevity)
+    assert "<code>t.me/+79345678901</code>" in kwargs['text']
+    assert "<code>wa.me/79345678901</code>" in kwargs['text']
+    # ...and the two links are separated by a blank line so they're easy to
+    # tap individually (the reported "hard to hit with a finger" problem)
+    t_idx = kwargs['text'].index("<code>t.me/+79345678901</code>")
+    w_idx = kwargs['text'].index("<code>wa.me/79345678901</code>")
+    between = kwargs['text'][min(t_idx, w_idx):max(t_idx, w_idx)]
+    assert "\n\n" in between
 
     # AC-6 (regression guard)
     buttons = kwargs['reply_markup'].inline_keyboard[0]
